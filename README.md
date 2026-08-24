@@ -7,10 +7,10 @@ BMT is a compact binary serialization format backed by a Red-Black tree (similar
 ## Usage
 
 ```
-bmt -p, --print   <file.bmt>              Print a BMT file
-bmt -c, --convert <file.json> <out.bmt>   Convert JSON to BMT
-bmt -v, --version                          Print version
-bmt -h, --help                             Print this help
+bmtc -p, --print   <file.bmt>              Print a BMT file
+bmtc -c, --convert <file.json> <out.bmt>   Convert JSON to BMT
+bmtc -v, --version                          Print version
+bmtc -h, --help                             Print this help
 ```
 
 ## Flags

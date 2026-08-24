@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
-project(bmt-cli VERSION 1.0.0 LANGUAGES CXX)
+project(bmtc VERSION 1.0.0 LANGUAGES CXX)
 
 include(FetchContent)
 
