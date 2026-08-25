@@ -29,3 +29,5 @@ target_link_libraries(bmtc PRIVATE
     bmt
     nlohmann_json::nlohmann_json
 )
+
+install(TARGETS bmtc RUNTIME DESTINATION bin)

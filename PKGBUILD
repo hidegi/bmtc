@@ -2,7 +2,7 @@
 pkgname=bmtc-git
 pkgver=r1.0.0
 pkgrel=1
-pkgdesc="CLI tool for inspecting and converting BMT (Binary Multi-data Tree) files"
+pkgdesc="CLI tool for inspecting and converting BMT files"
 arch=('x86_64' 'aarch64')
 url="https://github.com/hidegi/bmtc"
 license=('zlib')
