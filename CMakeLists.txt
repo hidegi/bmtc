@@ -22,6 +22,7 @@ set(JSON_Install    OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(nlohmann_json)
 
 add_executable(bmtc src/main.cpp)
+set_target_properties(bmtc PROPERTIES OUTPUT_NAME bmt)
 
 target_compile_features(bmtc PRIVATE cxx_std_17)
 
