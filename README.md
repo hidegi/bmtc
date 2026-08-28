@@ -8,6 +8,7 @@ BMT is a compact binary serialization format backed by a Red-Black tree (similar
 
 ```
 bmtc -p, --print   <file.bmt>              Print a BMT file
+bmtc -j, --json    <file.bmt>              Print a BMT file as JSON
 bmtc -c, --convert <file.json> <out.bmt>   Convert JSON to BMT
 bmtc -v, --version                          Print version
 bmtc -h, --help                             Print this help
@@ -17,10 +18,43 @@ bmtc -h, --help                             Print this help
 
 | Flag | Long form | Arguments | Description |
 |------|-----------|-----------|-------------|
-| `-p` | `--print` | `<file.bmt>` | Decode and pretty-print a BMT file |
+| `-p` | `--print` | `<file.bmt>` | Decode and pretty-print a BMT file (shows RBT structure) |
+| `-j` | `--json` | `<file.bmt>` | Decode and print a BMT file as pretty-printed JSON |
 | `-c` | `--convert` | `<file.json> <out.bmt>` | Convert a JSON file to BMT |
 | `-v` | `--version` | — | Print the tool version |
 | `-h` | `--help` | — | Print usage |
+
+## BMT → JSON (`-j`)
+
+`-j` decodes a BMT file and prints it as indented JSON, making it easy to inspect large files. Keys are emitted in sorted order (the natural order of the underlying Red-Black tree).
+
+```sh
+bmt -j output.bmt
+```
+
+```json
+{
+  "email": "john.doe@example.com",
+  "id": 101,
+  "is_active": 1,
+  "profile": {
+    "age": 30,
+    "first_name": "John",
+    "last_name": "Doe"
+  },
+  "username": "johndoe"
+}
+```
+
+BMT types map to JSON as follows:
+
+| BMT type | JSON type |
+|----------|-----------|
+| `byte` / `short` / `int` / `long` | number (integer) |
+| `float` / `double` | number (float) |
+| `string` | string |
+| tree | object |
+| typed list | array |
 
 ## JSON → BMT conversion
 
@@ -46,5 +80,3 @@ Requires CMake ≥ 3.14, a C++17 compiler, and GNU Make. Dependencies (`bmt-api`
 cmake -Bbuild -G"Unix Makefiles"
 cd build && make
 ```
-
-The binary is at `build/bmtc` (or `build/bmt-cli` depending on generator output).

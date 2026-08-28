@@ -37,6 +37,7 @@
 using JSON = nlohmann::json;
 
 static void cmd_print(const char* path);
+static void cmd_print_json(const char* path);
 static void cmd_convert(const char* inputPath, const char* outputPath);
 static BMT_node read_from_json(const char* path);
 static void parse(const char* key, const JSON& node, BMT_node* tree);
@@ -49,11 +50,15 @@ static BMT_tag get_decimal_tag(BMT_double value);
 static BMT_tag get_decimal_tag_range(BMT_double min, BMT_double max);
 static BMT_tag get_list_tag(const JSON& node);
 static BMT_tag get_array_number_tag(const JSON& array);
+static void collect_bst(const BMT_node node, JSON& obj);
+static JSON node_value_to_json(const BMT_node node);
+static JSON list_to_json_array(const BMT_node list_head);
 
 static void print_usage()
 {
     puts("Usage:");
     puts("  bmt -p, --print   <file.bmt>              Print a BMT file");
+    puts("  bmt -j, --json    <file.bmt>              Print a BMT file as JSON");
     puts("  bmt -c, --convert <file.json> <out.bmt>   Convert JSON to BMT");
     puts("  bmt -v, --version                          Print version");
     puts("  bmt -h, --help                             Print this help");
@@ -65,22 +70,27 @@ int main(int argc, char** argv)
     {
         MODE_NONE,
         MODE_PRINT,
+        MODE_JSON,
         MODE_CONVERT
     } mode = MODE_NONE;
 
     static struct option long_options[] = {{"print", no_argument, nullptr, 'p'},
+                                           {"json", no_argument, nullptr, 'j'},
                                            {"convert", no_argument, nullptr, 'c'},
                                            {"version", no_argument, nullptr, 'v'},
                                            {"help", no_argument, nullptr, 'h'},
                                            {nullptr, 0, nullptr, 0}};
 
     int c;
-    while ((c = getopt_long(argc, argv, "pcvh", long_options, nullptr)) != -1)
+    while ((c = getopt_long(argc, argv, "pjcvh", long_options, nullptr)) != -1)
     {
         switch (c)
         {
             case 'p':
                 mode = MODE_PRINT;
+                break;
+            case 'j':
+                mode = MODE_JSON;
                 break;
             case 'c':
                 mode = MODE_CONVERT;
@@ -109,6 +119,16 @@ int main(int argc, char** argv)
                 return EXIT_FAILURE;
             }
             cmd_print(argv[optind]);
+            break;
+
+        case MODE_JSON:
+            if (remaining < 1)
+            {
+                fprintf(stderr, "error: --json requires <file.bmt>\n");
+                print_usage();
+                return EXIT_FAILURE;
+            }
+            cmd_print_json(argv[optind]);
             break;
 
         case MODE_CONVERT:
@@ -158,6 +178,122 @@ static void cmd_print(const char* path)
     }
 
     bmt_Print(tree);
+    bmt_Delete(&tree);
+}
+
+static void collect_bst(const BMT_node node, JSON& obj)
+{
+    if (!node || node->tag == BMT_TAG_NULL)
+        return;
+    collect_bst(node->minor, obj);
+    if (node->name)
+        obj[node->name] = node_value_to_json(node);
+    collect_bst(node->major, obj);
+}
+
+static JSON list_to_json_array(const BMT_node list_head)
+{
+    JSON arr = JSON::array();
+    for (BMT_node c = list_head; c; c = c->major)
+    {
+        switch (c->tag)
+        {
+            case BMT_TAG_BYTE:
+                arr.push_back(c->payload.tag_byte);
+                break;
+            case BMT_TAG_SHORT:
+                arr.push_back(c->payload.tag_short);
+                break;
+            case BMT_TAG_INT:
+                arr.push_back(c->payload.tag_int);
+                break;
+            case BMT_TAG_LONG:
+                arr.push_back(c->payload.tag_long);
+                break;
+            case BMT_TAG_FLOAT:
+                arr.push_back(c->payload.tag_float);
+                break;
+            case BMT_TAG_DOUBLE:
+                arr.push_back(c->payload.tag_double);
+                break;
+            case BMT_TAG_STRING:
+                arr.push_back(std::string(c->payload.tag_string));
+                break;
+            case BMT_TAG_ROOT:
+            {
+                JSON sub = JSON::object();
+                collect_bst(c->payload.tag_object, sub);
+                arr.push_back(sub);
+                break;
+            }
+            default:
+                arr.push_back(list_to_json_array(c->payload.tag_object));
+                break;
+        }
+    }
+    return arr;
+}
+
+static JSON node_value_to_json(const BMT_node node)
+{
+    switch (node->tag)
+    {
+        case BMT_TAG_BYTE:
+            return node->payload.tag_byte;
+        case BMT_TAG_SHORT:
+            return node->payload.tag_short;
+        case BMT_TAG_INT:
+            return node->payload.tag_int;
+        case BMT_TAG_LONG:
+            return node->payload.tag_long;
+        case BMT_TAG_FLOAT:
+            return node->payload.tag_float;
+        case BMT_TAG_DOUBLE:
+            return node->payload.tag_double;
+        case BMT_TAG_STRING:
+            return std::string(node->payload.tag_string);
+        case BMT_TAG_ROOT:
+        {
+            JSON sub = JSON::object();
+            collect_bst(node->payload.tag_object, sub);
+            return sub;
+        }
+        default:
+            return list_to_json_array(node->payload.tag_object);
+    }
+}
+
+static void cmd_print_json(const char* path)
+{
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open())
+    {
+        fprintf(stderr, "error: cannot open '%s'\n", path);
+        return;
+    }
+
+    file.seekg(0, std::ios::end);
+    BMT_size length = static_cast<BMT_size>(file.tellg());
+    file.seekg(0, std::ios::beg);
+
+    BMT_buffer buf{};
+    bmt_BufferReserve(&buf, length);
+    file.read(reinterpret_cast<char*>(buf.data), static_cast<std::streamsize>(length));
+    buf.length = length;
+    file.close();
+
+    BMT_node tree = bmt_DecodeTree(buf);
+    bmt_BufferFree(&buf);
+
+    if (!tree)
+    {
+        fprintf(stderr, "error: '%s' is not a valid BMT file\n", path);
+        return;
+    }
+
+    JSON j = JSON::object();
+    collect_bst(tree, j);
+    puts(j.dump(2).c_str());
     bmt_Delete(&tree);
 }
 
